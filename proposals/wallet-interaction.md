@@ -182,13 +182,13 @@ The protocol can be used with many more transports, we only describe 2 here that
 
 In this communication, the App and the signing device have a direct, "one-way" communication channel open through QR codes. It is not possible to have back and forth communication unless multiple QRs are being scanned. This means that the messages should contain all necessary information so only one round trip is necessary.
 
-![TransportLayer_QRCode](uploads/a418051544ed7a3562de5923557edb9f/TransportLayer_QRCode.png)
+![TransportLayer_QRCode](/assets/TransportLayer_QRCode.png)
 
 ### Push Notification / Relay Server
 
 Push notifications always require a central server. This server is also used as a "relay server" to forward messages between the app and the wallet/signing device.
 
-![TransportLayer_RelayServer](uploads/a5cf03a6d7fd654cda4563215fc3f264/TransportLayer_RelayServer.png)
+![TransportLayer_RelayServer](/assets/TransportLayer_RelayServer.png)
 
 # Feedback - TQuorum Workshop
 
