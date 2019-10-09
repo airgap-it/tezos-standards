@@ -231,7 +231,10 @@ Feedback to this initial draft has been gathered in a workshop during the TQuoru
 ### Inputs
 
 - initial handshake with versioning etc.
-- instead of json use protocol buffer etc.
+- serialization, instead of json use protocol buffer etc.
+- QR support with scheme url
+- forging is dapps/sdk responsibility
+- don't automatically broadcast have 2 api's
 
 ### Next steps
 
