@@ -2,7 +2,7 @@
 title: Wallet Interaction Standard
 status: Draft
 author: Mike Godenzi <m.godenzi@papers.ch>, Andreas Gassmann <a.gassmann@papers.ch>, Alessandro De Carli <a.decarli@papers.ch>
-discussions-to:
+discussions-to: https://forum.tezosagora.org/t/wallet-interaction-standard/1399
 created: 2019-09-17
 ```
 
