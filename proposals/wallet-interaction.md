@@ -217,7 +217,7 @@ why we are proposing RLP are:
 
 <sup>1</sup> this is not a hard requirement for this initiative as of now, we can however foresee that it might become relevant in future.
 
-### Handshake (opening a channel)
+### 1. Handshake (opening a channel)
 
 Communication between app and wallet requires a secure setup. This is the proposed handshake process:
 
@@ -239,16 +239,16 @@ imported the crypto private key material, this would also allow the user to acce
 
 <sup>2</sup> public key is used to derive address on which both parties are listening.
 
-### Unresponsive counter party
+### 2. Unresponsive counter party
 
 If for whatever reason one party will not respond to messages anymore the user should be informed accordingly. The user can then choose to either close the channel and reopen or just
 retry at a later point in time.
 
-### Closing a channel
+### 3. Closing a channel
 
 Closing a channel will require one of the parties to send a channel close operation. After closing the channel the party will no longer listen to the channel (fire and forget).
 
-### Cleanup
+### 4. Cleanup
 
 Channels without activity for 90 days should be considered as dead. All state related to that channel should be removed.
 
