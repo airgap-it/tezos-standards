@@ -20,14 +20,20 @@ A user wants to be able to interact with decentralised applications e.g. uniswap
 
 To enable adoption of decentralised applications in the Tezos ecosystem a standard for the communication between these apps and wallets is needed. Application developers shouldn't need to implement yet another wallet just for their use case and users shouldn't need a multitude of wallets just to use a certain service.
 
-This standard should form consensus of how the types of messsages for this communication look like. They also should be applicable to a multitude of transport layers.
+This standard should form consensus of how the types of messsages for this communication look like.
 
+# Communication Protocol Version 1.0.0 (Version code 1)
 
-# Communication Protocol
+The entire protocol relies on asynchronous calls. A call consists of a request message and a asynchronous response message.
+
+## Versioning
+
+The transport layer is responsible for the communication of the protocol version. All of the discussed messages will be wrapped with a protocol header including the version code.
 
 ## Message Types
 
-The following chapters describe the different message types that exist between the app and wallet.
+The following chapters describe the different message types that exist between the app and wallet. Even though in some programming languages the order of keys in a dictionary/map is arbitrary
+for this protocol the order does matter. Also this protocol assumes a secure and authenticated transport layer was established hence no messages can be spoofed.
 
 ### 1. Permission
 
@@ -36,28 +42,28 @@ App requests permission to access account details from wallet.
 #### Request
 
 ```typescript
-type PermissionScopes = "addresses" | "sign" | "network";
+type PermissionScope = "read_address" | "sign" | "payment_request" | "threshold";
 
 interface PermissionRequest {
-  appMetadata: {
-    id: string;
-    name: string;
-    icon: string;
-  };
-  scope: PermissionScopes[];
+  scope: PermissionScope[];
 }
 ```
 
 `appMetadata`: An App should be identifiable by the user, for example with a name and icon.
 
-`scope`: The App should ask for permissions to do certain things, for example for a list of addresses or if the App can request to sign a transaction (maybe even without confirmation for micro-transactions).
+`scope`: The App should ask for permissions to do certain things, for example for a list of addresses or if the App can request to sign a transaction (maybe even without confirmation for micro-transactions). The following scopes are defined:
+
+- `read_address`: this indcates the app want to be able to read the address.
+- `sign`: this indicates the app wants to be able to sign.
+- `payment_request`: this indicates the app wants to perform payment requests.
+- `threshold`: this indicates the app wants the wallet to show the user a threshold prompt, so that in future transactions below this threshold can be handled automatically by the wallet.
 
 #### Response
 
 ```typescript
-interface PermissionResponse {
-  addresses: { address: string; permissions: PermissionScopes }[];
-}
+interface PermissionResponse [
+  { address: string; networks: string[]; permissions: PermissionScope[] };
+]
 ```
 
 #### Errors
@@ -66,57 +72,58 @@ interface PermissionResponse {
 
 `NOT_GRANTED_ERROR`: Will be returned if the permissions requested by the App were not granted.
 
-### 2. Sign Transaction
+#### Notes
 
-App requests that a (forged) transaction is signed and broadcast (depending on a flag).
+The `threshold` scope is only an optional suggestion for the wallet. Even if the wallet does not support this it will still be compatible with the protocol.
+
+### 2. Sign Payload
+
+App requests that a payload is signed.
 
 #### Request
 
 ```typescript
-interface SignRequest {
-  unsignedTransaction: string;
+interface SignPayloadRequest {
+  payload: byte[];
   sourceAddress: string;
-  broadcast?: boolean;
 }
 ```
 
-`unsignedTransaction`: The unsigned, forged transaction as a hex-string.
-
-`broadcast`: Whether or not the transaction should be broadcast by the wallet. Default: `false`.
+`payload`: The unsigned, payload.
 
 #### Response
 
 ```typescript
-interface SignResponse {
-  signedTransaction: string;
-  transactionHash?: string;
+interface SignPayloadResponse {
+  signature: byte[];
 }
 ```
 
-`signedTransaction`: The signed transaction as a hex-string.
-
-`transactionHash`: The transaction hash if it has been broadcast to the node (see `SignRequest`).
+`signature`: The signature of the payload.
 
 #### Errors
 
-`TRANSACTION_INVALID_ERROR`: Will be returned if the transaction is not parsable or is rejected by the node.
+`NOT_GRANTED_ERROR`: Will be returned if the signature was blocked
 
-`BROADCAST_ERROR`: Will be returned if the user choses that the transaction is broadcast but there is an error (eg. node not available).
+`NO_PRIVATE_KEY_FOUND_ERROR`: Will be returned if the private key matching the sourceAddress could not be found
+
 
 ### 3. Payment Request
 
-App sends parameters like `recipient` and `amount` to the wallet and the wallet will prepare the transaction and broadcast it (if the user sets the flag).
+App sends parameters like `recipient` and `amount` to the wallet and the wallet will prepare the transaction and broadcast it.
 
 #### Request
 
 ```typescript
 interface PaymentRequest {
+  network: string;
   recipient: string;
   amount: string;
   source?: string;
-  broadcast?: boolean;
 }
 ```
+
+`network`: The network used for the payment request.
 
 `recipient`: The address of the recipient.
 
@@ -124,18 +131,13 @@ interface PaymentRequest {
 
 `source`: The source address. This is optional. If no source is set, the wallet will let the user chose.
 
-`broadcast`: Whether or not the transaction should be broadcast by the wallet. Default: `false`.
-
 #### Response
 
 ```typescript
 interface PaymentResponse {
-  signedTransaction: string;
-  transactionHash?: string;
+  transactionHash: string;
 }
 ```
-
-`signedTransaction`: The signed transaction as a hex-string
 
 `transactionHash`: The transaction hash if it has been broadcast to the node (see `PaymentRequest`)
 
@@ -153,11 +155,14 @@ App requests a signed transaction to be broadcast.
 
 ```typescript
 interface BroadcastRequest {
-  signedTransaction: string;
+  network: string;
+  signedTransaction: byte[];
 }
 ```
 
-`signedTransaction`: The signed transaction as a hex-string
+`network`: The network used for the payment request.
+
+`signedTransaction`: The signed transaction payload
 
 #### Response
 
@@ -213,12 +218,12 @@ Communication between app and wallet requires a secure setup. This is the propos
 
 0. we define the communication/transport layer as 'channel'
 1. app generates and stores (e.g. local storage) a channel asymmetric key pair
-2. app serialises public key and channel version in an handshake uri
+2. app serialises public key, channel version, app name, app id (url) and app icon (url) in an handshake uri*
 3. handshake uri is either shown as QR or made openable by app
 4. wallet receives handshake uri
 5. wallet generates and stores a channel asymmetric key pair
 6. wallet serialises public key and channel version in an handshake uri
-7. wallet uses P2P network layer to reach out to app and send handshake uri*
+7. wallet uses P2P network layer to reach out to app and send handshake uri**
 8. wallet and app compute DH symmetric channel key
 9. symmetric encrypted acknowledgment message is sent
 10. channel is open
@@ -227,7 +232,9 @@ One might ask him/herself why not simply use directly the crypto address in the 
 imported the crypto private key material, this would also allow the user to accept/confirm messages coming from the app on different devices. The reason why we are deciding against such a solution
 is because it would imply that if a app sets up a channel once with a wallet it will always be able to send messages to it in future and since security is of outmost importance for this standard the decision has been made to have random channel keys which can be destroyed/ignored when an app turns rogue.
 
-*public key is used to derive address on which both parties are listening.
+*app id and app icon can be spoofed by any dapp, however the browser extension should make sure that spoofing is avoided. Also the user always has to check him/herself if the shown URL matches 
+the one in his/her address bar. 
+**public key is used to derive address on which both parties are listening.
 
 ## Unresponsive counter party
 
@@ -272,6 +279,7 @@ Feedback to this initial draft has been gathered in a workshop during the TQuoru
   - use Tezos URI standard
 
 * TransportLayer
+
   - use URI schemes to communicate with desktop application
   - use matrix messaging network in terms to act as a "relay" service (Tezos GitLab flag) for the nodes
 
@@ -290,7 +298,6 @@ Feedback to this initial draft has been gathered in a workshop during the TQuoru
 
 ### Next steps
 
-- Adapt draft with feedback
 - Implementation -> first step: wallet extension (signing, broadcasting)
 
 # Appendix
