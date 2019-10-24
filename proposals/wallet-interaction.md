@@ -6,6 +6,15 @@ discussions-to: https://forum.tezosagora.org/t/wallet-interaction-standard/1399
 created: 2019-09-17
 ```
 
+## Iterations
+
+| Version | Date       | Changes                      |
+| ------- | ---------- | ---------------------------- |
+| v0.1    | 2019-09-17 | initial draft                |
+| v0.2    | 2019-10-09 | adds workshop feedback notes |
+| v0.3    | 2019-10-12 | specifies transport layer    |
+| v0.4    | 2019-10-24 | new messages and feedback    |
+
 ## Simple Summary
 
 Communication between wallets and decentralised applications.
@@ -29,6 +38,7 @@ The entire protocol relies on asynchronous calls. A call consists of a request m
 ## Versioning
 
 The transport layer is responsible for the communication of the protocol version. All of the discussed messages will be wrapped with a protocol header including the version code.
+
 
 ## Message Types
 
@@ -183,20 +193,22 @@ interface BroadcastResponse {
 # Transport Layer
 
 This standard requires a transport layer that can cover the following use cases:
+
 - Same Device Desktop to Desktop (e.g. Galleon)
 - Same Device Desktop to Hardware Wallet (e.g. Ledger)
-- Same Device Mobile to Mobile (e.g.  Cortez)
-- Two Device Desktop to online Mobile (e.g. WeTez)
+- Same Device Mobile to Mobile (e.g. Cortez)
+- Two Device Desktop to online Mobile (e.g. Wetez)
 - Two Device Desktop to offline Mobile (e.g. AirGap)
 
-The transport layer used for app-wallet communication we propose is using a decentralised messaging service. Concretely we are proposing to use the matrix protocol. Other teams in the crypto
-space like [Raiden](https://medium.com/raiden-network/raiden-transport-explained-939d7741b6f4%5C) have been using matrix successfully to cover very similar requirements. The long term vision is that 
-the tezos reference node will eventually include such a messaging service by default, replacing the matrix network in the long term. 
+The transport layer used for app-wallet communication we propose is using a decentralised messaging service. We are proposing to use the [matrix protocol](https://matrix.org/). Other projects in the blockchain
+space like [Raiden](https://medium.com/raiden-network/raiden-transport-explained-939d7741b6f4%5C) have been using matrix successfully to cover very similar requirements. The long term vision is that
+the Tezos reference node will eventually include such a messaging service by default, replacing the matrix network in the long term.
 
-The main reasons why we propose to use a decentralized messaging service as the transport layer between app-wallet are:
-- decentralised
+The main reasons why we propose to use a decentralized messaging service as the transport layer between app and wallet are:
+
+- decentralization
 - enables modern user experience
-- can cover all of the scenarios described above
+- covers all of the scenarios described above
 - easy to integrate with all kind of wallets
 - minimal effort to "join" for a wallet
 - support for oracles (e.g. push service)
@@ -206,46 +218,48 @@ The main reasons why we propose to use a decentralized messaging service as the 
 The serialisation used for the transport layer messages requires an algorithm which is space efficient and fast to encode/decode. These properties rule out the common encoding standards
 XML and JSON. After researching various alternatives (BSON, RLP, Protocol buffers and amino) we propose to use the space efficient yet very easy to implement RLP encoding. The main reasons
 why we are proposing RLP are:
+
 - simple algorithm, no need to generate/compile code on a per-message basis (like with e.g. protocol buffers)
 - very space efficient (only 1-2 bytes of overhead per new structure)
-- same object always has same byte output, making it suitable to use with signatures* 
+- same object always has same byte output, making it suitable to use with signatures <sup>1</sup>
 
-* this is not a hard requirement for this initiative as of now, we can however foresee that it might become relevant in future.
+<sup>1</sup> this is not a hard requirement for this initiative as of now, we can however foresee that it might become relevant in future.
 
-## Handshake (opening a channel)
+### 1. Handshake (opening a channel)
 
 Communication between app and wallet requires a secure setup. This is the proposed handshake process:
 
 0. we define the communication/transport layer as 'channel'
 1. app generates and stores (e.g. local storage) a channel asymmetric key pair
-2. app serialises public key, channel version, app name, app id (url) and app icon (url) in an handshake uri*
+
+2. app serialises public key, channel version, app name, app id (url) and app icon (url) in an handshake uri <sup>2</sup>
 3. handshake uri is either shown as QR or made openable by app
 4. wallet receives handshake uri
 5. wallet generates and stores a channel asymmetric key pair
 6. wallet serialises public key and channel version in an handshake uri
-7. wallet uses P2P network layer to reach out to app and send handshake uri**
+7. wallet uses P2P network layer to reach out to app and send handshake uri <sup>3</sup>
 8. wallet and app compute DH symmetric channel key
 9. symmetric encrypted acknowledgment message is sent
 10. channel is open
 
-One might ask him/herself why not simply use directly the crypto address in the wallet? There would be one big upside namely the wallet-app channel could be easily restored on any wallet that
-imported the crypto private key material, this would also allow the user to accept/confirm messages coming from the app on different devices. The reason why we are deciding against such a solution
-is because it would imply that if a app sets up a channel once with a wallet it will always be able to send messages to it in future and since security is of outmost importance for this standard the decision has been made to have random channel keys which can be destroyed/ignored when an app turns rogue.
+**Why not simply use directly the crypto address in the wallet?**  
+There would be one big upside namely the wallet-app channel could be easily restored on any wallet that
+imported the crypto private key material, this would also allow the user to accept/confirm messages coming from the app on different devices. The reason for the decision against such a solution is because it would imply that if a app sets up a channel once with a wallet it will always be able to send messages to it in future and since security is of outmost importance for this standard the decision has been made to have random channel keys which can be destroyed/ignored when an app turns rogue.
 
-*app id and app icon can be spoofed by any dapp, however the browser extension should make sure that spoofing is avoided. Also the user always has to check him/herself if the shown URL matches 
+<sup>2</sup> app id and app icon can be spoofed by any dapp, however the browser extension should make sure that spoofing is avoided. Also the user always has to check him/herself if the shown URL matches 
 the one in his/her address bar. 
-**public key is used to derive address on which both parties are listening.
+<sup>3</sup> public key is used to derive address on which both parties are listening.
 
-## Unresponsive counter party
+### 2. Unresponsive counter party
 
-If for whatever reason one party will not respond to messages anymore the user should be informed accordingly. The user can then choose to either close the channel and reopen or just 
-retry at a later point in time. 
+If for whatever reason one party will not respond to messages anymore the user should be informed accordingly. The user can then choose to either close the channel and reopen or just
+retry at a later point in time.
 
-## Closing a channel
+### 3. Closing a channel
 
 Closing a channel will require one of the parties to send a channel close operation. After closing the channel the party will no longer listen to the channel (fire and forget).
 
-## Cleanup
+### 4. Cleanup
 
 Channels without activity for 90 days should be considered as dead. All state related to that channel should be removed.
 
