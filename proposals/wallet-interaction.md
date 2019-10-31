@@ -86,9 +86,17 @@ interface PermissionResponse [
 
 The `threshold` scope is only an optional suggestion for the wallet. Even if the wallet does not support this it will still be compatible with the protocol.
 
+### 2.1 Send Operation
+
+```typescript
+interface SendOperationRequest {
+  payload: (Origination | Transaction | etc)[];
+}
+```
+
 ### 2. Sign Payload
 
-App requests that a payload is signed.
+App requests that a payload is signed. The payload is a "raw" operation that is forged by the dApp.
 
 #### Request
 
@@ -117,8 +125,9 @@ interface SignPayloadResponse {
 
 `NO_PRIVATE_KEY_FOUND_ERROR`: Will be returned if the private key matching the sourceAddress could not be found
 
-
 ### 3. Payment Request
+
+`PaymentRequest` provides an API to compose a transaction operation. The `PaymentRequest` is not a transaction. It will be used by the wallet as input to produce an operation.
 
 App sends parameters like `recipient` and `amount` to the wallet and the wallet will prepare the transaction and broadcast it.
 
@@ -129,6 +138,10 @@ interface PaymentRequest {
   network: string;
   recipient: string;
   amount: string;
+  parameters?: {
+    entrypoint: "string",
+    value: MichelsonValue
+  },
   source?: string;
 }
 ```
@@ -138,6 +151,8 @@ interface PaymentRequest {
 `recipient`: The address of the recipient.
 
 `amount`: The amount that will be sent, as a string in mutez (smallest unit).
+
+`parameters`: The parameters to be send along with the transaction useful in case of smart contract payment
 
 `source`: The source address. This is optional. If no source is set, the wallet will let the user chose.
 
